@@ -45,6 +45,8 @@ int noteLength[120];
 char serialInBuffer[bufferLength];
 int serialCount = 0;
 
+int i = 0;
+
 
 // Return the result of the last prediction
 int PredictGesture(float* output) {
@@ -87,21 +89,22 @@ int PredictGesture(float* output) {
 }
 
 void uLCDprint(void){
-  if(now == 0 && selection == 0){
+  if(now == 0){
+    uLCD.cls();
     uLCD.locate(1, 1);
-    uLCD.printf("\nTwo-Tigers                            \n");
-  }else if(now == 1 && selection == 0){
+    uLCD.printf("\nTwinkle Twinkle   \nLittle Star       \n01221012\n");
+  }else if(now == 1){
+    uLCD.cls();
     uLCD.locate(1, 1);
-    uLCD.printf("\nStar       \n");
-  }else if(now == 2 && selection == 0){
+    uLCD.printf("\nTwo-Tigers        \n                  \n12121001\n");
+  }else if(now == 2){
+    uLCD.cls();
     uLCD.locate(1, 1);
-    uLCD.printf("\nLittle Bee        \n                  \n");
-  }else if(selection == 1){
-    uLCD.locate(1, 1);
-    uLCD.printf("\nSong_select             \n                  \n");    
+    uLCD.printf("\nLittle Bee        \n                  \n00120012\n");
   }else{
+    uLCD.cls();
     uLCD.locate(1, 1);
-    uLCD.printf("\nerror             \n                  \n");
+    uLCD.printf("\nError             \n                  \n");
   }
 }
 
@@ -212,42 +215,79 @@ void DNN(void) {
     if (gesture_index < label_num) {
       error_reporter->Report(config.output_message[gesture_index]);
       if(mode == 1){
-        if(selection == 0){
-          if(gesture_index == 0){
-            if(now == 2){
-              now = 0;  
-            }else{
-              now++;
-            }
-          }else if(gesture_index == 1){
-            if(now == 0){
-              now = 2;
-            }else{
-              now--;
-            }
+        if(gesture_index == 0 && selection == 0){
+          if(now == 2){
+            now = 0;  
           }else{
-            selection = 1;
-            led1 = 0;
-            led2 = 1;
-            led3 = 1;
+            now++;
           }
-        }
-        else if (selection == 1) {
-          if(gesture_index == 0){
+        }else if(gesture_index == 1 && selection == 0){
+          if(now == 0){
+            now = 2;
+          }else{
+            now--;
+          }
+        }else if(gesture_index == 2 && selection == 0){
+          selection = 1;
+          led1 = 0;
+          led2 = 1;
+          led3 = 1;
+        }else if(gesture_index == 0 && selection == 1){
             now = 0;
             selection = 0;
-          }else if(gesture_index == 1){
-            now = 1;
-            selection = 0;
-          }else if(gesture_index == 2){
-            now = 2;
-            selection = 0;
-          }
-        }
-        else{
+            led1 = 1;
+            led2 = 1;
+            led3 = 1;
+        }else if(gesture_index == 1 && selection == 1){
+          now = 1;
+          selection = 0;
+          led1 = 1;
+          led2 = 1;
+          led3 = 1;
+        }else if(gesture_index == 2 && selection == 1){
+          now = 2;
+          selection = 0;
+          led1 = 1;
+          led2 = 1;
+          led3 = 1;
+        }else{
           uLCD.locate(1, 1);
           uLCD.printf("\nerror             \n                  \n");
         }
+      }
+
+      else if(mode==0){
+
+        if(i==8){
+          uLCD.locate(0, 8);
+          //uLCD.color(RED);
+          uLCD.printf("Good!");
+          i = 0;
+        }
+
+        if(gesture_index == 0 && i<8){
+          //uLCD.cls();
+          uLCD.locate(i, 7);
+          uLCD.printf("0");
+          i++;
+        }
+
+        else if(gesture_index == 1 && i<8){
+          //uLCD.cls();
+          uLCD.locate(i, 7);
+          uLCD.printf("1");
+          i++;
+        }
+        else if(gesture_index == 2 && i<8){
+          //uLCD.cls();
+          uLCD.locate(i, 7);
+          uLCD.printf("2");
+          i++;
+        }
+      
+        
+      
+
       }
     }
   }
@@ -257,10 +297,17 @@ void DNN(void) {
 
 void mode_selection(void){
   mode = 1;
+  led1 = 1;
+  led2 = 1;
+  led3 = 1;
+  i = 0;
 }
 
 void confirm_selection(void){
   mode = 0;
+  led1 = 1;
+  led2 = 1;
+  led3 = 1;
 }
 
 
