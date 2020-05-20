@@ -21,13 +21,9 @@
 DA7212 audio;
 int16_t waveform[kAudioTxBufferSize];
 
-DigitalOut led1(LED1);
 DigitalOut led2(LED2);
-DigitalOut led3(LED3);
-
 InterruptIn sw2(SW2);
 InterruptIn sw3(SW3);
-
 Serial pc(USBTX, USBRX);
 uLCD_4DGL uLCD(D1, D0, D2);
 
@@ -36,7 +32,7 @@ EventQueue queueDNN(32 * EVENTS_EVENT_SIZE);
 Thread threadDNN(osPriorityNormal, 120*1024);
 
 int now = 0;
-int mode = 0;
+int state = 0;
 int selection = 0;
 
 int song[120];
@@ -46,6 +42,63 @@ char serialInBuffer[bufferLength];
 int serialCount = 0;
 
 int i = 0;
+
+
+void playNote(int freq) {
+  for(int i = 0; i < kAudioTxBufferSize; i++){
+    waveform[i] = (int16_t) (sin((double)i * 2. * M_PI/(double) (kAudioSampleFrequency / freq)) * ((1<<16) - 1));
+  }
+  audio.spk.play(waveform, kAudioTxBufferSize);
+}
+
+void loadSignal(void)
+{
+  led2 = 0;
+  int i;
+  float freq = 0, len = 0;
+  serialCount = 0;
+  audio.spk.pause();
+  uLCD.locate(1, 1);
+  uLCD.printf("\nLoad Signal       \n                  \n");
+
+  i = 0;
+  while(i < 120)
+  {
+    if(pc.readable())
+    {
+      serialInBuffer[serialCount] = pc.getc();
+      serialCount++;
+      if(serialCount == 5)
+      {
+        serialInBuffer[serialCount] = '\0';
+        freq = (float) atof(serialInBuffer);
+        song[i] = freq * 1000;
+        serialCount = 0;
+        i++;
+      }
+    }
+  }
+
+  i = 0;
+  while(i < 120)
+  {
+    if(pc.readable())
+    {
+      serialInBuffer[serialCount] = pc.getc();
+      serialCount++;
+      if(serialCount == 5)
+      {
+        serialInBuffer[serialCount] = '\0';
+        len = (float) atof(serialInBuffer);
+        noteLength[i] = len * 1000;
+        serialCount = 0;
+        k++;
+      }
+    }
+  }
+  led2 = 1;
+}
+
 
 
 // Return the result of the last prediction
@@ -86,26 +139,6 @@ int PredictGesture(float* output) {
   last_predict = -1;
 
   return this_predict;
-}
-
-void uLCDprint(void){
-  if(now == 0){
-    uLCD.cls();
-    uLCD.locate(1, 1);
-    uLCD.printf("\nTwinkle Twinkle   \nLittle Star       \n01221012\n");
-  }else if(now == 1){
-    uLCD.cls();
-    uLCD.locate(1, 1);
-    uLCD.printf("\nTwo-Tigers        \n                  \n12121001\n");
-  }else if(now == 2){
-    uLCD.cls();
-    uLCD.locate(1, 1);
-    uLCD.printf("\nLittle Bee        \n                  \n00120012\n");
-  }else{
-    uLCD.cls();
-    uLCD.locate(1, 1);
-    uLCD.printf("\nError             \n                  \n");
-  }
 }
 
 void DNN(void) {
@@ -212,178 +245,96 @@ void DNN(void) {
     should_clear_buffer = gesture_index < label_num;
 
     // Produce an output
+    // finite state machine
     if (gesture_index < label_num) {
       error_reporter->Report(config.output_message[gesture_index]);
-      if(mode == 1){
-        if(gesture_index == 0 && selection == 0){
-          if(now == 2){
-            now = 0;  
+      if(state == 1){
+        if(selection == 0){  
+          if(gesture_index == 0){
+            if(now == 2){
+              now = 0;  
+            }else{
+              now++;
+            }
+          }else if(gesture_index == 1){
+            if(now == 0){
+              now = 2;
+            }else{
+              now--;
+            }
           }else{
-            now++;
+            selection = 1;
           }
-        }else if(gesture_index == 1 && selection == 0){
-          if(now == 0){
-            now = 2;
-          }else{
-            now--;
-          }
-        }else if(gesture_index == 2 && selection == 0){
-          selection = 1;
-          led1 = 0;
-          led2 = 1;
-          led3 = 1;
-        }else if(gesture_index == 0 && selection == 1){
-            now = 0;
-            selection = 0;
-            led1 = 1;
-            led2 = 1;
-            led3 = 1;
-        }else if(gesture_index == 1 && selection == 1){
-          now = 1;
-          selection = 0;
-          led1 = 1;
-          led2 = 1;
-          led3 = 1;
-        }else if(gesture_index == 2 && selection == 1){
-          now = 2;
-          selection = 0;
-          led1 = 1;
-          led2 = 1;
-          led3 = 1;
+        }else if (selection == 1){
+
+          now = selection = gesture_index;
+
         }else{
           uLCD.locate(1, 1);
           uLCD.printf("\nerror             \n                  \n");
         }
       }
-
-      else if(mode==0){
-
-        if(i==8){
-          uLCD.locate(0, 8);
-          //uLCD.color(RED);
-          uLCD.printf("Good!");
-          i = 0;
-        }
-
-        if(gesture_index == 0 && i<8){
-          //uLCD.cls();
-          uLCD.locate(i, 7);
-          uLCD.printf("0");
-          i++;
-        }
-
-        else if(gesture_index == 1 && i<8){
-          //uLCD.cls();
-          uLCD.locate(i, 7);
-          uLCD.printf("1");
-          i++;
-        }
-        else if(gesture_index == 2 && i<8){
-          //uLCD.cls();
-          uLCD.locate(i, 7);
-          uLCD.printf("2");
-          i++;
-        }
-      
-        
-      
-
-      }
     }
   }
 }
 
-
-
-void mode_selection(void){
-  mode = 1;
-  led1 = 1;
-  led2 = 1;
-  led3 = 1;
+void select(void){
+  state = 1;
   i = 0;
 }
 
-void confirm_selection(void){
-  mode = 0;
-  led1 = 1;
-  led2 = 1;
-  led3 = 1;
+void confirm(void){
+  state = 0;
 }
 
-
-
-void playNote(int freq) {
-  for(int i = 0; i < kAudioTxBufferSize; i++){
-    waveform[i] = (int16_t) (sin((double)i * 2. * M_PI/(double) (kAudioSampleFrequency / freq)) * ((1<<16) - 1));
-  }
-  audio.spk.play(waveform, kAudioTxBufferSize);
-}
-
-void loadSignal(void)
-{
-  led2 = 0;
-  int i = 0, k = 0;
-  float freq = 0, len = 0;
-  serialCount = 0;
-  audio.spk.pause();
+// ulcd management
+void uLCDprint(void){
+  uLCD.cls();
   uLCD.locate(1, 1);
-  uLCD.printf("\nLoad Signal       \n                  \n");
-  while(i < 120)
-  {
-    if(pc.readable())
-    {
-      serialInBuffer[serialCount] = pc.getc();
-      serialCount++;
-      if(serialCount == 5)
-      {
-        serialInBuffer[serialCount] = '\0';
-        freq = (float) atof(serialInBuffer);
-        song[i] = freq * 1000;
-        serialCount = 0;
-        i++;
-      }
-    }
+
+  if(now == 0){
+    uLCD.printf("\nTwinkleStar       \n                  \n01221012\n");
+  }else if(now == 1){
+    uLCD.printf("\nTwo Tiger         \n                  \n12121001\n");
+  }else if(now == 2){
+    uLCD.printf("\nMary Sheep        \n                  \n00120012\n");
+  }else{
+    uLCD.printf("\ndick             \n                  \n");
   }
-  while(k < 120)
-  {
-    if(pc.readable())
-    {
-      serialInBuffer[serialCount] = pc.getc();
-      serialCount++;
-      if(serialCount == 5)
-      {
-        serialInBuffer[serialCount] = '\0';
-        len = (float) atof(serialInBuffer);
-        noteLength[k] = len * 1000;
-        serialCount = 0;
-        k++;
+
+  // taiku
+  if(state==0){
+      if(i==8){
+          uLCD.locate(0, 8);
+          //uLCD.color(RED);
+          uLCD.printf("bravo!");
+          i = 0;
       }
-    }
+      else if (i < 8){
+          uLCD.locate(i, 7);
+          uLCD.printf("%d", gesture_index);
+          i ++;
+      }
   }
-  led2 = 1;
+
 }
 
 int main(int argc, char* argv[]) {
-  
-
-  
   threadDNN.start(DNN);
-  sw2.rise(mode_selection);
-  sw3.rise(confirm_selection);
+  sw2.rise(select);
+  sw3.rise(confirm);
 
-  led3 = 1;
   led2 = 1;
-  led1 = 1;
 
   loadSignal();
 
   while(1){
     uLCDprint();
     for(int i = 0; i < 40; i++){
-      if(mode == 0){
+      if(state == 0){
         int length = noteLength[40 * now + i];
         while(length--){
-        // the loop below will play the note for the duration of 1s
+        // play one note per second
           for(int k = 0; k < kAudioSampleFrequency / kAudioTxBufferSize; ++k){
             playNote(song[40 * now + i]);
           }
